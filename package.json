@@ -5,6 +5,8 @@
   "license": "MIT",
   "dependencies": {
     "async": "^3.2.3",
+    "chalk": "4.1.0",
+    "dree": "^3.3.7",
     "jsmediatags": "^3.9.7",
     "node-id3": "^0.2.3"
   }
