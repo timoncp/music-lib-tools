@@ -37,7 +37,7 @@ const worker = (filePath, callback) => {
     return callback(null, { fileName, skipped: true });
   }
 
-  exec(`ffmpeg -i "${filePath}" "${outputFile}"`, (err, stdout, stderr) => {
+  exec(`ffmpeg -i "${filePath}" -af "aformat=sample_rates=44100|48000" "${outputFile}"`, (err, stdout, stderr) => {
     if (err) {
       return callback(err, { fileName });
     }
