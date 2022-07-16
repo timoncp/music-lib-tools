@@ -55,6 +55,9 @@ const renameFile = ({
     return callback();
   }
 
+  // remove any language specific accents
+  updatedFileName = updatedFileName.normalize("NFD").replace(/\p{Diacritic}/gu, "")
+
   fs.renameSync(path.join(pathToRead, fileName), path.join(pathToRead, updatedFileName));
 
   console.log(`Renamed ${fileName} to ${updatedFileName}\n`);
