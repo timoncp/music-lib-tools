@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const async = require('async');
+const chalk = require('chalk');
 const { exec } = require('child_process');
+const { getFilesRecursively } = require('./utils');
 
 const args = process.argv.slice(2);
 let pathToRead = path.resolve(args[0]);
@@ -11,82 +13,63 @@ if (!pathToRead) {
   process.exit(1);
 }
 
-const files = fs.readdirSync(pathToRead);
+const startTime = process.hrtime();
 
-// const moveFile = ({
-//   fileName,
-//   artist,
-//   title,
-//   extension,
-//   callback,
-// }) => {
-//   console.log(path.join(pathToRead, fileName));
-//   console.log('Artist:', artist);
-//   console.log('Title:', title);
+const files = getFilesRecursively(pathToRead, { fileTypes: '.flac' });
 
-//   if (!artist || !title) {
-//     console.log(artist, title);
-//     return callback();
-//   }
+let queue;
 
-//   artist = artist.replace('/', ':');
-//   title = title.replace('/', ':');
-
-//   let updatedFileName = `${artist} - ${title}${extension}`;
-
-//   if (title.startsWith(artist)) {
-//     updatedFileName = `${title}${extension}`;
-//   }
-
-//   if (fileName === updatedFileName) {
-//     console.log('Already in correct filename formatting. Skipping...\n');
-//     return callback();
-//   }
-
-//   // remove any language specific accents
-//   updatedFileName = updatedFileName.normalize("NFD").replace(/\p{Diacritic}/gu, "")
-
-//   fs.renameSync(path.join(pathToRead, fileName), path.join(pathToRead, updatedFileName));
-
-//   console.log(`Renamed ${fileName} to ${updatedFileName}\n`);
-//   callback();
-// };
-
-const methodsToRun = files.map((fileName) => (callback) => {
+const worker = (filePath, callback) => {
+  const fileName = path.basename(filePath);
   const extension = path.extname(fileName);
+  const baseName = path.basename(fileName, extension);
+  const parentDir = path.dirname(filePath);
 
   if (extension !== '.flac') {
-    return callback();
+    return callback(null, { fileName, skipped: true });
   }
 
-  const name = path.parse(fileName).name;
-  const wavFileName = `${name}.wav`;
+  const wavFilePath = path.join(parentDir, `${baseName}.wav`);
 
-  if (fs.existsSync(path.join(pathToRead, wavFileName))) {
-    console.log(`${name} has both flac and wav.`);
+  if (wavFilePath) {
+    const outputFile = filePath.replace(pathToRead, `${pathToRead} FLAC`);
+    const outputFolder = path.dirname(outputFile);
 
-    const currentFolderName = pathToRead.split('/').pop();
-    const parentFolder = path.join(pathToRead, '..');
-    const destinationPath = path.join(parentFolder, `${currentFolderName} FLAC`);
-
-    if (!fs.existsSync(destinationPath)) {
-      console.log('>>> Made directory.');
-      fs.mkdirSync(destinationPath, { recursive: true });
+    if (!fs.existsSync(outputFolder)) {
+      fs.mkdirSync(outputFolder, { recursive: true });
     }
 
-    exec(`mv "${path.join(pathToRead, fileName)}" "${path.join(destinationPath, fileName)}"`, (err) => {
+    exec(`cp "${filePath}" "${outputFile}"`, (err) => {
       if (err) {
         return callback(err, { fileName });
       }
 
-      callback(null, { fileName, skipped: false });
+      callback(null, { fileName });
     });
   }
+};
+
+queue = async.queue(worker, 5);
+
+const handleCompletedTask = (err, { fileName, skipped }) => {
+  if (err) {
+    console.log(chalk.red(`Error moving ${fileName}: ${err}`));
+  } else if (skipped) {
+    console.log(chalk.yellow(`File ${fileName} is not of type FLAC. Skipping...`));
+  } else {
+    console.log(chalk.green(`Moved file ${fileName}. ${queue.length()} tasks remaining.`));
+  }
+};
+
+queue.push(files, handleCompletedTask);
+
+queue.drain(() => {
+  const endTime = process.hrtime(startTime);
+  console.info('Execution time: %ds %dms', endTime[0], endTime[1] / 1000000);
+
+  console.log(chalk.magentaBright('Succesfully moved all files.'));
 });
 
-async.parallel(
-  methodsToRun,
-  (err, results) => {
-    console.log('Succesfully moved all FLAC files that were converted to WAVs.');
-  }
-);
+if (queue.started) {
+  console.log(`Checking ${queue.length()} FLAC tracks for existing WAV copies...`);
+}
