@@ -39,7 +39,7 @@ const worker = (filePath, callback) => {
       fs.mkdirSync(outputFolder, { recursive: true });
     }
 
-    exec(`cp "${filePath}" "${outputFile}"`, (err) => {
+    exec(`mv "${filePath}" "${outputFile}"`, (err) => {
       if (err) {
         return callback(err, { fileName });
       }
