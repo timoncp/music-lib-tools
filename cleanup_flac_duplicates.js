@@ -31,7 +31,7 @@ const worker = (filePath, callback) => {
 
   const wavFilePath = path.join(parentDir, `${baseName}.wav`);
 
-  if (wavFilePath) {
+  if (fs.existsSync(wavFilePath)) {
     const outputFile = filePath.replace(pathToRead, `${pathToRead} FLAC`);
     const outputFolder = path.dirname(outputFile);
 
