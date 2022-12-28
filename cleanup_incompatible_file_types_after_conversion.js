@@ -4,6 +4,7 @@ const async = require('async');
 const chalk = require('chalk');
 const { exec } = require('child_process');
 const { getFilesRecursively } = require('./utils');
+const { fileTypeConversionMapping } = require('./config');
 
 const args = process.argv.slice(2);
 let pathToRead = path.resolve(args[0]);
@@ -15,7 +16,8 @@ if (!pathToRead) {
 
 const startTime = process.hrtime();
 
-const files = getFilesRecursively(pathToRead, { fileTypes: ['.flac'] });
+const incompatibleFileTypes = Object.keys(fileTypeConversionMapping);
+const files = getFilesRecursively(pathToRead, { fileTypes: incompatibleFileTypes });
 
 let queue;
 
@@ -25,13 +27,13 @@ const worker = (filePath, callback) => {
   const baseName = path.basename(fileName, extension);
   const parentDir = path.dirname(filePath);
 
-  if (extension !== '.flac') {
+  if (!incompatibleFileTypes.includes(extension)) {
     return callback(null, { fileName, skipped: true });
   }
 
-  const wavFilePath = path.join(parentDir, `${baseName}.wav`);
+  const allowedFormatFilePath = path.join(parentDir, `${baseName}${fileTypeConversionMapping[extension]}`);
 
-  if (!fs.existsSync(wavFilePath)) {
+  if (!fs.existsSync(allowedFormatFilePath)) {
     return callback(null, { fileName, skipped: true });
   }
 
@@ -57,7 +59,7 @@ const handleCompletedTask = (err, { fileName, skipped }) => {
   if (err) {
     console.log(chalk.red(`Error moving ${fileName}: ${err}`));
   } else if (skipped) {
-    console.log(chalk.yellow(`File ${fileName} has no WAV copy or is not of type FLAC. Skipping...`));
+    console.log(chalk.yellow(`File ${fileName} has no WAV/MP3 copy or is not of a converted type. Skipping...`));
   } else {
     console.log(chalk.green(`Moved file ${fileName}. ${queue.length()} tasks remaining.`));
   }
@@ -73,5 +75,5 @@ queue.drain(() => {
 });
 
 if (queue.started) {
-  console.log(`Checking ${queue.length()} FLAC tracks for existing WAV copies...`);
+  console.log(`Checking ${queue.length()} FLAC, ALAC, m4a, ogg tracks for existing WAV/MP3 copies...`);
 }

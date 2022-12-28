@@ -4,6 +4,7 @@ const chalk = require('chalk');
 const { exec } = require('child_process');
 const async = require('async');
 const { getFilesRecursively } = require('./utils');
+const { fileTypeConversionMapping } = require('./config');
 
 const args = process.argv.slice(2);
 let pathToRead = path.resolve(args[0]);
@@ -14,13 +15,6 @@ if (!pathToRead) {
 }
 
 const startTime = process.hrtime();
-
-const fileTypeConversionMapping = {
-  '.flac': '.wav',
-  '.alac': '.wav',
-  '.m4a': '.mp3',
-  '.ogg': '.mp3',
-};
 
 const fileTypesToConvert = Object.keys(fileTypeConversionMapping);
 const files = getFilesRecursively(pathToRead, { fileTypes: fileTypesToConvert });
