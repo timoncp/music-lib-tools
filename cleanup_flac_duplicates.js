@@ -15,7 +15,7 @@ if (!pathToRead) {
 
 const startTime = process.hrtime();
 
-const files = getFilesRecursively(pathToRead, { fileTypes: '.flac' });
+const files = getFilesRecursively(pathToRead, { fileTypes: ['.flac'] });
 
 let queue;
 
@@ -31,22 +31,24 @@ const worker = (filePath, callback) => {
 
   const wavFilePath = path.join(parentDir, `${baseName}.wav`);
 
-  if (fs.existsSync(wavFilePath)) {
-    const outputFile = filePath.replace(pathToRead, `${pathToRead} FLAC`);
-    const outputFolder = path.dirname(outputFile);
+  if (!fs.existsSync(wavFilePath)) {
+    return callback(null, { fileName, skipped: true });
+  }
 
-    if (!fs.existsSync(outputFolder)) {
-      fs.mkdirSync(outputFolder, { recursive: true });
+  const outputFile = filePath.replace(pathToRead, `${pathToRead} FLAC`);
+  const outputFolder = path.dirname(outputFile);
+
+  if (!fs.existsSync(outputFolder)) {
+    fs.mkdirSync(outputFolder, { recursive: true });
+  }
+
+  exec(`mv "${filePath}" "${outputFile}"`, (err) => {
+    if (err) {
+      return callback(err, { fileName });
     }
 
-    exec(`mv "${filePath}" "${outputFile}"`, (err) => {
-      if (err) {
-        return callback(err, { fileName });
-      }
-
-      callback(null, { fileName });
-    });
-  }
+    callback(null, { fileName });
+  });
 };
 
 queue = async.queue(worker, 5);
@@ -55,7 +57,7 @@ const handleCompletedTask = (err, { fileName, skipped }) => {
   if (err) {
     console.log(chalk.red(`Error moving ${fileName}: ${err}`));
   } else if (skipped) {
-    console.log(chalk.yellow(`File ${fileName} is not of type FLAC. Skipping...`));
+    console.log(chalk.yellow(`File ${fileName} has no WAV copy or is not of type FLAC. Skipping...`));
   } else {
     console.log(chalk.green(`Moved file ${fileName}. ${queue.length()} tasks remaining.`));
   }
